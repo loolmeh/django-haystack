@@ -13,13 +13,14 @@ from haystack.utils import log as logging
 class SearchQuerySet(object):
     """
     Provides a way to specify search parameters and lazily load results.
-
     Supports chaining (a la QuerySet) to narrow the search.
     """
-    def __init__(self, using=None, query=None):
+    def __init__(self, using=None, query=None, should_stem=True, language=None):
         # ``_using`` should only ever be a value other than ``None`` if it's
         # been forced with the ``.using`` method.
         self._using = using
+        self.language = language
+        self.should_stem = should_stem 
         self.query = None
         self._determine_backend()
 
@@ -39,7 +40,7 @@ class SearchQuerySet(object):
         from haystack import connections
         # A backend has been manually selected. Use it instead.
         if self._using is not None:
-            self.query = connections[self._using].get_query()
+            self.query = connections[self._using].get_query(language=self.language, should_stem=self.should_stem)
             return
 
         # No backend, so rely on the routers to figure out what's right.
@@ -59,7 +60,7 @@ class SearchQuerySet(object):
         if self.query:
             self.query = self.query.using(backend_alias)
         else:
-            self.query = connections[backend_alias].get_query()
+            self.query = connections[backend_alias].get_query(language=self.language, should_stem=self.should_stem)
 
     def __getstate__(self):
         """

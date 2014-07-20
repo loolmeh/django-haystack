@@ -78,6 +78,7 @@ class BaseSearchBackend(object):
         self.batch_size = connection_options.get('BATCH_SIZE', 1000)
         self.silently_fail = connection_options.get('SILENTLY_FAIL', True)
         self.distance_available = connection_options.get('DISTANCE_AVAILABLE', False)
+        self.language = connection_options.get('LANGUAGE', None)
 
     def update(self, index, iterable):
         """
@@ -442,7 +443,7 @@ class BaseSearchQuery(object):
     implementation.
     """
 
-    def __init__(self, using=DEFAULT_ALIAS):
+    def __init__(self, using=DEFAULT_ALIAS, language=None, should_stem=True):
         self.query_filter = SearchNode()
         self.order_by = []
         self.models = set()
@@ -475,9 +476,11 @@ class BaseSearchQuery(object):
         self._spelling_suggestion = None
         self.result_class = SearchResult
         self.stats = {}
+        self.should_stem = should_stem
         from haystack import connections
         self._using = using
         self.backend = connections[self._using].get_backend()
+        self.language = language or self.backend.language
 
     def __str__(self):
         return self.build_query()
@@ -1014,6 +1017,8 @@ class BaseSearchQuery(object):
         clone.distance_point = self.distance_point.copy()
         clone._raw_query = self._raw_query
         clone._raw_query_params = self._raw_query_params
+        clone.language = self.language
+        clone.should_stem = self.should_stem
 
         return clone
 
@@ -1038,8 +1043,8 @@ class BaseEngine(object):
             self._backend = self.backend(self.using, **self.options)
         return self._backend
 
-    def get_query(self):
-        return self.query(using=self.using)
+    def get_query(self, language=None, should_stem=True):
+        return self.query(using=self.using, language=language, should_stem=should_stem)
 
     def reset_queries(self):
         self.queries = []
