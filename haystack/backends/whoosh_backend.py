@@ -59,6 +59,35 @@ def dummy_fn(arg):
 
 DUMMY_ANALYZER = StemmingAnalyzer(stemfn=dummy_fn, stoplist=set())
 
+# will be replaced by a patch to haystack I hope
+STEMMERS = getattr(settings, 'STEMMERS', {})
+
+class Stemmer(object):
+
+    __name__ = str('Stemmer')
+
+    def __init__(self, lang=None):
+        self.lang = lang
+
+    def __reduce__(self):
+        return (self.lang, tuple())
+
+    def stem(self, text):
+        stemmer = STEMMERS.get(self.lang)
+        if not stemmer:
+            return ''
+
+        text_stemmed = []
+        for term in text.split(' '):
+            term = stemmer.stem(term)
+            text_stemmed.append(term)
+        text_stemmed = ' '.join(text_stemmed)
+
+        return text_stemmed
+
+    def __call__(self, text):
+        return self.stem(text)
+
 
 class WhooshSearchBackend(BaseSearchBackend):
     # Word reserved by Whoosh for special use.
@@ -160,7 +189,7 @@ class WhooshSearchBackend(BaseSearchBackend):
             elif field_class.field_type == 'edge_ngram':
                 schema_fields[field_class.index_fieldname] = NGRAMWORDS(minsize=2, maxsize=15, at='start', stored=field_class.stored, field_boost=field_class.boost)
             else:
-                schema_fields[field_class.index_fieldname] = TEXT(stored=True, analyzer=DUMMY_ANALYZER, field_boost=field_class.boost, sortable=True)
+                schema_fields[field_class.index_fieldname] = TEXT(stored=True, analyzer=StemmingAnalyzer(stemfn=Stemmer(lang=self.language), stoplist=set()), field_boost=field_class.boost, sortable=True)
 
             if field_class.document is True:
                 content_field_name = field_class.index_fieldname
@@ -620,7 +649,7 @@ class WhooshSearchBackend(BaseSearchBackend):
                 if highlight:
                     from whoosh import analysis
                     from whoosh.highlight import highlight, ContextFragmenter, UppercaseFormatter
-                    sa = DUMMY_ANALYZER
+                    sa = StemmingAnalyzer(stemfn=Stemmer(self.language), stoplist=set())
                     terms = [term.replace('*', '') for term in query_string.split()]
 
                     additional_fields['highlighted'] = {
