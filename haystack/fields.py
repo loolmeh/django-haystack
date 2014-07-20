@@ -434,3 +434,23 @@ class FacetDateTimeField(FacetField, DateTimeField):
 
 class FacetMultiValueField(FacetField, MultiValueField):
     pass
+
+class MLField(SearchField):
+    field_type = 'string'
+
+    def __init__(self, **kwargs):
+        if kwargs.get('facet_class') is None:
+            kwargs['facet_class'] = fields.FacetCharField
+
+        self.lang_fld = kwargs.get('lang_fld') or 'lang'
+        if kwargs.get('lang_fld'): del kwargs['lang_fld']
+
+        super(MLField, self).__init__(**kwargs)
+
+    def prepare(self, obj):
+        return self.convert(super(MLField, self).prepare(obj))
+
+    def convert(self, value):
+        if value is None:
+            return None
+        return unicode(value)

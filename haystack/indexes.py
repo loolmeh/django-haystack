@@ -487,3 +487,25 @@ class ModelSearchIndex(SearchIndex):
             final_fields[f.name].set_instance_name(self.get_index_fieldname(f))
 
         return final_fields
+
+class MLIndex(SearchIndex):
+
+    def __init__(self):
+        self._init_ml()
+        super(MLIndex, self).__init__()
+
+    def _init_ml(self):
+        self.ml_flds = dict((fld_nm, fld) for fld_nm, fld in self.fields.iteritems() if isinstance(fld, MLField))
+        print self.ml_flds
+        for fld_nm, _ in self.ml_flds.iteritems():
+            fld = indexes.CharField()
+            fld.set_instance_name(fld_nm+'_stemmed')
+            self.fields[fld_nm+'_stemmed'] = fld
+
+    def prepare(self, object):
+        self.prepared_data = super(MLIndex, self).prepare(object)
+
+        for fld_nm, fld in self.ml_flds.iteritems():
+            self.prepared_data[fld_nm+'_stemmed'] = stem(self.prepared_data[fld_nm], self.prepared_data[fld.lang_fld])
+
+        return self.prepared_data
